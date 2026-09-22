@@ -37,8 +37,8 @@ function trendContext(bars) {
   let bias = 'NEUTRAL';
 
   if (
-    e20 &&
-    e50 &&
+    e20 !== null &&
+    e50 !== null &&
     last > e20 &&
     e20 > e50
   ) {
@@ -46,8 +46,8 @@ function trendContext(bars) {
   }
 
   if (
-    e20 &&
-    e50 &&
+    e20 !== null &&
+    e50 !== null &&
     last < e20 &&
     e20 < e50
   ) {
@@ -65,6 +65,16 @@ function trendContext(bars) {
 function momentumContext(bars, atrValue) {
   const closes = bars.map(b => b.close);
   const last = bars.at(-1);
+
+  if (!last) {
+    return {
+      rsi: 50,
+      bodyRatio: 0,
+      range: 0,
+      rangeAtr: 0,
+      bias: 'NEUTRAL'
+    };
+  }
 
   const r = rsi(closes, 14);
   const disp = bodyRatio(last);
@@ -97,6 +107,16 @@ function momentumContext(bars, atrValue) {
   };
 }
 
+/*
+  DIRECTION ENGINE
+
+  M30 = filter utama.
+  M5  = konfirmasi.
+  Structure / BOS / CHoCH / Sweep / Momentum
+  digunakan sebagai penambah bobot.
+
+  Tidak lagi terlalu ketat.
+*/
 function chooseDirection(
   m30,
   m5,
@@ -107,14 +127,14 @@ function chooseDirection(
   let bull = 0;
   let bear = 0;
 
-  if (m30.bias === 'BULLISH') bull += 2;
-  if (m30.bias === 'BEARISH') bear += 2;
+  if (m30.bias === 'BULLISH') bull += 4;
+  if (m30.bias === 'BEARISH') bear += 4;
 
-  if (m5.bias === 'BULLISH') bull += 1;
-  if (m5.bias === 'BEARISH') bear += 1;
+  if (m5.bias === 'BULLISH') bull += 2;
+  if (m5.bias === 'BEARISH') bear += 2;
 
-  if (structure.bias === 'BULLISH') bull += 1;
-  if (structure.bias === 'BEARISH') bear += 1;
+  if (structure.bias === 'BULLISH') bull += 2;
+  if (structure.bias === 'BEARISH') bear += 2;
 
   if (structure.bos === 'BULLISH') bull += 2;
   if (structure.bos === 'BEARISH') bear += 2;
@@ -128,11 +148,46 @@ function chooseDirection(
   if (momentum.bias === 'BULLISH') bull += 1;
   if (momentum.bias === 'BEARISH') bear += 1;
 
-  if (bull >= 4 && bull > bear) {
+  /*
+    M30 menentukan arah dasar.
+    Jangan memilih BUY jika M30 bearish,
+    dan jangan memilih SELL jika M30 bullish.
+  */
+
+  if (
+    m30.bias === 'BULLISH' &&
+    bull >= 4 &&
+    bull >= bear
+  ) {
     return 'BUY';
   }
 
-  if (bear >= 4 && bear > bull) {
+  if (
+    m30.bias === 'BEARISH' &&
+    bear >= 4 &&
+    bear >= bull
+  ) {
+    return 'SELL';
+  }
+
+  /*
+    Jika M30 masih neutral,
+    gunakan M5 + structure.
+  */
+
+  if (
+    m30.bias === 'NEUTRAL' &&
+    bull >= 5 &&
+    bull > bear
+  ) {
+    return 'BUY';
+  }
+
+  if (
+    m30.bias === 'NEUTRAL' &&
+    bear >= 5 &&
+    bear > bull
+  ) {
     return 'SELL';
   }
 
@@ -200,9 +255,7 @@ function makeCandidates(
   return candidates;
 }
 
-function selectCandidate(
-  candidates
-) {
+function selectCandidate(candidates) {
   const valid = candidates
     .filter(c => c.validRisk)
     .sort((a, b) => {
@@ -253,6 +306,16 @@ function buildSetup(market) {
   const a5 = atr(m5, 14);
   const a30 = atr(m30, 14);
 
+  if (
+    !Number.isFinite(a5) ||
+    a5 <= 0
+  ) {
+    return {
+      ok: false,
+      reason: 'INVALID_ATR'
+    };
+  }
+
   const t30 = trendContext(m30);
   const t5 = trendContext(m5);
 
@@ -282,12 +345,18 @@ function buildSetup(market) {
       ok: false,
       reason: 'NO_DIRECTIONAL_ALIGNMENT',
       diagnostics: {
-        t30,
-        t5,
-        s5,
-        s30,
+        price,
+        directionScores: {
+          bullish: 0,
+          bearish: 0
+        },
+        m30: t30.bias,
+        m5: t5.bias,
+        structure: s5.bias,
+        bos: s5.bos,
+        choch: s5.choch,
         sweep,
-        mom
+        momentum: mom.bias
       }
     };
   }
@@ -317,7 +386,7 @@ function buildSetup(market) {
 
   if (!candidate) {
     const nearest =
-      candidates
+      [...candidates]
         .sort(
           (a, b) =>
             a.risk - b.risk
@@ -497,8 +566,10 @@ function buildSetup(market) {
 
   return {
     ok: true,
+
     setup: {
       id: crypto.randomUUID(),
+
       symbol:
         market.symbol ||
         cfg.symbol,
@@ -736,9 +807,7 @@ function hardConfirmation(
   };
 }
 
-export function generateSetup(
-  market
-) {
+export function generateSetup(market) {
   return buildSetup(market);
 }
 
