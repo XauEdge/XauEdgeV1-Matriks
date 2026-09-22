@@ -1,3 +1,5 @@
+import { cfg } from './config.js';
+
 export function num(v, d = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : d;
@@ -26,9 +28,7 @@ export function ema(values, n) {
 export function trueRange(bars) {
   if (!bars.length) return [];
 
-  const out = [
-    bars[0].high - bars[0].low
-  ];
+  const out = [bars[0].high - bars[0].low];
 
   for (let i = 1; i < bars.length; i++) {
     const b = bars[i];
@@ -66,16 +66,11 @@ export function rsi(closes, n = 14) {
   if (loss === 0) return 100;
 
   const rs = (gain / n) / (loss / n);
-
   return 100 - (100 / (1 + rs));
 }
 
 export function bodyRatio(b) {
-  const range = Math.max(
-    b.high - b.low,
-    1e-9
-  );
-
+  const range = Math.max(b.high - b.low, 1e-9);
   return Math.abs(b.close - b.open) / range;
 }
 
@@ -93,36 +88,19 @@ export function candleDirection(b) {
   return 'doji';
 }
 
-export function swingPoints(
-  bars,
-  left = 2,
-  right = 2
-) {
+export function swingPoints(bars, left = 2, right = 2) {
   const highs = [];
   const lows = [];
 
-  for (
-    let i = left;
-    i < bars.length - right;
-    i++
-  ) {
+  for (let i = left; i < bars.length - right; i++) {
     let hi = true;
     let lo = true;
 
-    for (
-      let j = i - left;
-      j <= i + right;
-      j++
-    ) {
+    for (let j = i - left; j <= i + right; j++) {
       if (j === i) continue;
 
-      if (bars[j].high >= bars[i].high) {
-        hi = false;
-      }
-
-      if (bars[j].low <= bars[i].low) {
-        lo = false;
-      }
+      if (bars[j].high >= bars[i].high) hi = false;
+      if (bars[j].low <= bars[i].low) lo = false;
     }
 
     if (hi) {
@@ -142,10 +120,7 @@ export function swingPoints(
     }
   }
 
-  return {
-    highs,
-    lows
-  };
+  return { highs, lows };
 }
 
 export function structureState(bars) {
@@ -173,12 +148,7 @@ export function structureState(bars) {
   let bos = null;
   let choch = null;
 
-  if (
-    lastHigh &&
-    prevHigh &&
-    lastLow &&
-    prevLow
-  ) {
+  if (lastHigh && prevHigh && lastLow && prevLow) {
     if (
       lastHigh.price > prevHigh.price &&
       lastLow.price > prevLow.price
@@ -226,15 +196,9 @@ export function structureState(bars) {
   };
 }
 
-export function liquiditySweep(
-  bars,
-  lookback = 30
-) {
+export function liquiditySweep(bars, lookback = 30) {
   const recent = bars.slice(
-    -Math.min(
-      bars.length,
-      lookback + 5
-    )
+    -Math.min(bars.length, lookback + 5)
   );
 
   if (recent.length < 8) {
@@ -250,17 +214,8 @@ export function liquiditySweep(
   const last = recent.at(-1);
   const prev = recent.at(-2);
 
-  const highs = swingPoints(
-    before,
-    2,
-    2
-  ).highs;
-
-  const lows = swingPoints(
-    before,
-    2,
-    2
-  ).lows;
+  const highs = swingPoints(before, 2, 2).highs;
+  const lows = swingPoints(before, 2, 2).lows;
 
   const lastPoolHigh =
     highs.at(-1)?.price ??
@@ -298,36 +253,27 @@ export function liquiditySweep(
   };
 }
 
-export function detectZones(
-  bars,
-  atrValue
-) {
-  if (
-    bars.length < 20 ||
-    !atrValue
-  ) {
+export function detectZones(bars, atrValue) {
+  if (bars.length < 20 || !atrValue) {
     return [];
   }
 
   const zones = [];
 
-  const start = Math.max(
-    3,
-    bars.length - 45
-  );
+  const start = Math.max(3, bars.length - 45);
 
-  for (
-    let i = start;
-    i < bars.length - 3;
-    i++
-  ) {
+  const maxRisk =
+    cfg.maxSlPoints * cfg.pointSize;
+
+  const maxZoneWidth =
+    maxRisk * 1.7;
+
+  for (let i = start; i < bars.length - 3; i++) {
     const b = bars[i];
     const n1 = bars[i + 1];
     const n2 = bars[i + 2];
 
-    const move = Math.abs(
-      n2.close - b.close
-    );
+    const move = Math.abs(n2.close - b.close);
 
     const displacement =
       move >= atrValue * 0.8 &&
@@ -340,40 +286,45 @@ export function detectZones(
       n2.close > n2.open
     ) {
       const low = b.low;
-      const high = Math.max(
-        b.open,
-        b.close
-      );
+      const high = Math.max(b.open, b.close);
+      const width = high - low;
 
-      zones.push({
-        type: 'DEMAND',
-        low,
-        high,
-        origin: b.time,
-        quality: move / atrValue,
-        width: high - low
-      });
+      if (
+        width > 0 &&
+        width <= maxZoneWidth
+      ) {
+        zones.push({
+          type: 'DEMAND',
+          low,
+          high,
+          origin: b.time,
+          quality: move / atrValue,
+          width
+        });
+      }
     }
 
     if (
       b.close > b.open &&
       n2.close < n2.open
     ) {
-      const low = Math.min(
-        b.open,
-        b.close
-      );
-
+      const low = Math.min(b.open, b.close);
       const high = b.high;
+      const width = high - low;
 
-      zones.push({
-        type: 'SUPPLY',
-        low,
-        high,
-        origin: b.time,
-        quality: move / atrValue,
-        width: high - low
-      });
+      if (
+        width > 0 &&
+        width <= maxZoneWidth
+      ) {
+        zones.push({
+          type: 'SUPPLY',
+          low,
+          high,
+          origin: b.time,
+          quality: move / atrValue,
+          width
+        });
+      }
     }
   }
 
@@ -383,40 +334,31 @@ export function detectZones(
       Number.isFinite(z.high) &&
       z.high > z.low
     )
-    .sort(
-      (a, b) =>
-        b.quality - a.quality
-    )
+    .sort((a, b) => {
+      if (b.quality !== a.quality) {
+        return b.quality - a.quality;
+      }
+
+      return b.origin - a.origin;
+    })
     .slice(0, 12);
 }
 
-export function nearestZone(
-  zones,
-  price,
-  side
-) {
-  const filtered = zones.filter(
-    z =>
-      side === 'BUY'
-        ? z.type === 'DEMAND' &&
-          z.high <= price + price * 0.01
-        : z.type === 'SUPPLY' &&
-          z.low >= price - price * 0.01
+export function nearestZone(zones, price, side) {
+  const filtered = zones.filter(z =>
+    side === 'BUY'
+      ? z.type === 'DEMAND' &&
+        z.high <= price + price * 0.01
+      : z.type === 'SUPPLY' &&
+        z.low >= price - price * 0.01
   );
 
   if (!filtered.length) return null;
 
   return filtered
-    .sort(
-      (a, b) =>
-        Math.abs(
-          ((a.low + a.high) / 2) -
-          price
-        ) -
-        Math.abs(
-          ((b.low + b.high) / 2) -
-          price
-        )
+    .sort((a, b) =>
+      Math.abs(((a.low + a.high) / 2) - price) -
+      Math.abs(((b.low + b.high) / 2) - price)
     )
     .at(0);
-      }
+    }
