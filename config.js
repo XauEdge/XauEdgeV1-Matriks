@@ -1,0 +1,23 @@
+export const cfg = {
+  port: Number(process.env.PORT || 8080),
+  dataDir: process.env.DATA_DIR || '/data',
+  ingestKey: process.env.INGEST_KEY || '',
+  symbol: process.env.SYMBOL || 'XAUUSD',
+  pointSize: Number(process.env.POINT_SIZE || 0.01),
+  maxSlPoints: Number(process.env.MAX_SL_POINTS || 50),
+  minRR: Number(process.env.MIN_RR || 2),
+  zoneTouchBufferPoints: Number(process.env.ZONE_TOUCH_BUFFER_POINTS || 5),
+  setupTtlMinutes: Number(process.env.SETUP_TTL_MINUTES || 180),
+  confirmCooldownSeconds: Number(process.env.CONFIRM_COOLDOWN_SECONDS || 20),
+  postConfirmCooldownMinutes: Number(process.env.POST_CONFIRM_COOLDOWN_MINUTES || 30),
+  minScoreSetup: Number(process.env.MIN_SCORE_SETUP || 62),
+  minScoreConfirm: Number(process.env.MIN_SCORE_CONFIRM || 72),
+  telegramToken: process.env.TELEGRAM_BOT_TOKEN || '',
+  telegramChatId: String(process.env.TELEGRAM_CHAT_ID || ''),
+  telegramPollMs: Number(process.env.TELEGRAM_POLL_MS || 1200),
+  openaiKey: process.env.OPENAI_API_KEY || '',
+  openaiModel: process.env.OPENAI_MODEL || 'gpt-5.6-luna',
+  openaiEnabled: String(process.env.OPENAI_CONFIRMATION_ENABLED || 'true').toLowerCase() === 'true',
+  openaiTimeoutMs: Number(process.env.OPENAI_TIMEOUT_MS || 12000),
+  fundamentalMode: process.env.FUNDAMENTAL_MODE || 'disabled'
+};

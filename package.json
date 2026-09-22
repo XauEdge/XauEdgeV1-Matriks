@@ -1,0 +1,13 @@
+{
+  "name": "xau-edge-v2",
+  "version": "2.0.0",
+  "private": true,
+  "description": "XAU EDGE V2 - setup then confirmation trading signal engine",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
